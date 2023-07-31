@@ -89,6 +89,8 @@ class NextFLAPImpl(Engine, OneshotPlannerMixin, PlanValidatorMixin):
         supported_kind.set_typing('HIERARCHICAL_TYPING')
         supported_kind.set_fluents_type('NUMERIC_FLUENTS')
         supported_kind.set_fluents_type('OBJECT_FLUENTS')
+        supported_kind.set_quality_metrics("PLAN_LENGTH")
+        supported_kind.set_quality_metrics("MAKESPAN")
         return supported_kind
     
     @staticmethod
