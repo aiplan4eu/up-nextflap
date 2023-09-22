@@ -5,10 +5,12 @@ NEXTFLAP is a numeric extension of [TFLAP planner](https://grps.webs.upv.es/down
 
 ## Installation
 After cloning this repository run ```pip install up-nextflap```. up-nextflap can also be installed through the unified-planning framework with the command ```pip install unified-planning[nextflap]```.
-If there is no version available for your platform, a ```setup.py``` script (```nextflap``` folder) is also provided. It can assist in the build process.
+
+If there is no version available for your platform, a ```setup.py``` script (```nextflap``` folder) is also provided. It can assist you in the build process.
 
 ## Planning approaches of UP supported
 Classical, Numeric and Temporal Planning
+
 Partial-Order Plan Validator
 
 ## Operative modes of UP currently supported
