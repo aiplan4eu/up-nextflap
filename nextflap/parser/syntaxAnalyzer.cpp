@@ -48,6 +48,7 @@ string Token::toString() {
 
 SyntaxAnalyzer::SyntaxAnalyzer()
 {
+    buffer = NULL;
 }
 
 // Creates a new syntactic analyzer for parsing a given file
@@ -62,7 +63,7 @@ SyntaxAnalyzer::SyntaxAnalyzer(char* fileName) {
     std::transform(contents.begin(), contents.end(), contents.begin(), ::tolower);
     bufferLength = contents.length() + 1;
     buffer = new char[bufferLength];
-    strcpy_s(buffer, bufferLength, contents.c_str());
+    strcpy(buffer, contents.c_str());
     tokenIndex = 0;
     lineNumber = 1;
     position = 0;
@@ -75,7 +76,7 @@ SyntaxAnalyzer::SyntaxAnalyzer(char* fileName) {
 
 // Disposes the syntatic analyzer
 SyntaxAnalyzer::~SyntaxAnalyzer() {
-    delete[] buffer;
+    if (buffer != NULL) delete[] buffer;
     for (unsigned int i = 0; i < tokens.size(); i++)
         delete tokens[i];
     tokens.clear();

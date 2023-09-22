@@ -776,6 +776,10 @@ string DerivedPredicate::toString(const vector<Function>& functions, const vecto
 /* CLASS: ParsedTask (PDDL planning task)               */
 /********************************************************/
 
+void ParsedTask::setError(string e) {
+    error = e;
+}
+
 // Sets the name of the domain
 void ParsedTask::setDomainName(string name) {
     domainName = name;

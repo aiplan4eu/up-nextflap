@@ -388,11 +388,12 @@ public:
     Metric metric;
     int serialLength;
     int parallelLength;
-    std::string error = "";
+    std::string error;
     float timeout = -1.0f;
     clock_t startTime;
 
     void setDomainName(std::string name);
+    void setError(std::string e);
     void setProblemName(std::string name);
     void setRequirement(std::string name);
     unsigned int getTypeIndex(std::string const& name);
