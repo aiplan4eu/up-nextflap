@@ -226,7 +226,13 @@ bool SASNumericExpression::findFluent(TVariable v)
 void SASNumericExpression::getVariables(std::vector<TVariable>* vars)
 {
 	if (type == 'V') {
-		if (std::find(vars->begin(), vars->end(), var) == vars->end())
+		bool found = false;
+		for (int i = 0; i < vars->size(); i++)
+			if (vars->at(i) == var) {
+				found = true;
+				break;
+			}
+		if (!found)
 			vars->push_back(var);
 	}
 	else {
@@ -492,31 +498,44 @@ SASTask::SASTask() {
 	requirers = nullptr;
 	producers = nullptr;
 	condProducers = nullptr;
+	staticNumFunctions = nullptr;
 	numGoalsInPlateau = 1;
+	numRequirers = nullptr;
+	numGoalRequirers = nullptr;
+	initialState = nullptr;
+	numInitialState = nullptr;
+	numVarReqAtStart = nullptr;
+	numVarReqAtEnd = nullptr;
+	numVarReqGoal = nullptr;	
 }
 
 SASTask::~SASTask() {
 	if (requirers != nullptr) {
-		for (unsigned int i = 0; i < variables.size(); i++) {
+		for (int i = 0; i < variables.size(); i++) {
 			delete[] requirers[i];
 		}
 		delete[] requirers;
 	}
 	if (producers != nullptr) {
-		for (unsigned int i = 0; i < variables.size(); i++) {
+		for (int i = 0; i < variables.size(); i++) {
 			delete[] producers[i];
 		}
 		delete[] producers;
 	}
 	if (condProducers != nullptr) {
-		for (unsigned int i = 0; i < variables.size(); i++) {
+		for (int i = 0; i < variables.size(); i++) {
 			delete[] condProducers[i];
 		}
 		delete[] condProducers;
 	}
-	delete[] initialState;
-	delete[] numInitialState;
+	if (initialState != nullptr) delete[] initialState;
+	if (numInitialState != nullptr) delete[] numInitialState;
 	if (staticNumFunctions != nullptr) delete[] staticNumFunctions;
+	if (numRequirers != nullptr) delete[] numRequirers;
+	if (numGoalRequirers != nullptr) delete[] numGoalRequirers;
+	if (numVarReqAtStart != nullptr) delete[] numVarReqAtStart;
+	if (numVarReqAtEnd != nullptr) delete[] numVarReqAtEnd;
+	if (numVarReqGoal != nullptr) delete[] numVarReqGoal;
 }
 
 // Adds a mutex relationship between (var1, value1) and (var2, value2)
@@ -721,7 +740,13 @@ void SASTask::computeNumericVariablesInActions(SASAction& a)
 		//cout << "Action " << a.name << " requires at start " << numVariables[v].name << endl;
 	}
 	for (TVariable v : numVarReqAtEnd[i]) {
-		if (std::find(numVarReqAtStart[i].begin(), numVarReqAtStart[i].end(), v) == numVarReqAtStart[i].end())
+		bool found = false;
+		for (int j = 0; j < numVarReqAtStart[i].size(); j++)
+			if (numVarReqAtStart[i].at(j) == v) {
+				found = true;
+				break;
+			}
+		if (!found)
 			numRequirers[v].push_back(&a);
 		//cout << "Action " << a.name << " requires at end " << numVariables[v].name << endl;
 	}
@@ -1530,10 +1555,14 @@ void SASAction::postProcessDuration(SASDurationCondition& dc)
 void SASAction::searchForControlVarsInDuration(SASNumericExpression* e)
 {
 	if (e->type == 'C') {
-		if (std::find(duration.controlVarsNeededInDuration.begin(), duration.controlVarsNeededInDuration.end(),
-			e->var) == duration.controlVarsNeededInDuration.end()) {
+		bool found = false;
+		for (int i = 0; i < duration.controlVarsNeededInDuration.size(); i++)
+			if (duration.controlVarsNeededInDuration.at(i) == e->var) {
+				found = true;
+				break;
+			}
+		if (!found)
 			duration.controlVarsNeededInDuration.push_back(e->var);
-		}
 	}
 	else {
 		for (SASNumericExpression& t : e->terms) {
@@ -1716,7 +1745,13 @@ char SASAction::analyzeNumericCondition(SASNumericCondition* c, std::vector<int>
 void SASAction::containsControlVar(SASNumericExpression* e, std::vector<int>* cvs)
 {
 	if (e->type == 'C') {
-		if (std::find(cvs->begin(), cvs->end(), e->var) == cvs->end())
+		bool found = false;
+		for (int i = 0; i < cvs->size(); i++)
+			if (cvs->at(i) == e->var) {
+				found = true;
+				break;
+			}
+		if (!found)
 			cvs->push_back(e->var);
 	}
 	else {
@@ -1739,7 +1774,13 @@ bool SASAction::containsFluents(SASNumericExpression* e)
 void SASAction::containsFluents(SASNumericExpression* e, std::vector<TVariable>* vars)
 {
 	if (e->type == 'V') {
-		if (std::find(vars->begin(), vars->end(), e->var) == vars->end())
+		bool found = false;
+		for (int i = 0; i < vars->size(); i++)
+			if (vars->at(i) == e->var) {
+				found = true;
+				break;
+			}
+		if (!found)
 			vars->push_back(e->var);
 	}
 	for (SASNumericExpression& se : e->terms)
