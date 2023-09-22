@@ -5,7 +5,7 @@
 #include <unordered_map>
 #include "plan.h"
 #include "planComponents.h"
-#include "../z3/include/z3++.h"
+#include "z3++.h"
 using namespace z3;
 
 /********************************************************/

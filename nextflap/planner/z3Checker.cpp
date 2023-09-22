@@ -61,29 +61,29 @@ void Z3Checker::defineVariables(Plan* p, TStep s)
     char varName[10];
     this->stepVars.emplace_back(s, p);
     Z3StepVariables& vars = this->stepVars.back();
-    sprintf_s(varName, 10, "d%d", s);
+    sprintf(varName, "d%d", s);
     vars.times.push_back(cont->real_const(varName));       // Duration
     
-    sprintf_s(varName, 10, "t%d", stepToStartPoint(s));
+    sprintf(varName, "t%d", stepToStartPoint(s));
     vars.times.push_back(cont->int_const(varName));       // Start time
-    sprintf_s(varName, 10, "t%d", stepToEndPoint(s));
+    sprintf(varName, "t%d", stepToEndPoint(s));
     vars.times.push_back(cont->int_const(varName));       // End time
     if (p->cvarValues != nullptr) {
         for (int cv = 0; cv < p->cvarValues->size(); cv++) {
-            sprintf_s(varName, 10, "c%ds%d", cv, s);    // Control var
+            sprintf(varName, "c%ds%d", cv, s);    // Control var
             vars.controlVars.push_back(cont->real_const(varName));
         }
     }
     if (p->startPoint.numVarValues != nullptr) {
         for (TFluentInterval& i : *(p->startPoint.numVarValues)) {
-            sprintf_s(varName, 10, "f%dt%d", i.numVar, stepToStartPoint(s));    // Fluent
+            sprintf(varName, "f%dt%d", i.numVar, stepToStartPoint(s));    // Fluent
             vars.startFluentIndex[i.numVar] = (int)vars.fluents.size();
             vars.fluents.push_back(cont->real_const(varName));
         }
     }
     if (p->endPoint.numVarValues != nullptr) {
         for (TFluentInterval& i : *(p->endPoint.numVarValues)) {
-            sprintf_s(varName, 10, "f%dt%d", i.numVar, stepToEndPoint(s));    // Fluent
+            sprintf(varName, "f%dt%d", i.numVar, stepToEndPoint(s));    // Fluent
             vars.endFluentIndex[i.numVar] = (int)vars.fluents.size();
             vars.fluents.push_back(cont->real_const(varName));
         }
