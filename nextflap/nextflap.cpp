@@ -6,6 +6,10 @@
 #include "planner/plannerSetting.h"
 #include "planner/z3Checker.h"
 #include "planner/printPlan.h"
+#include <Python.h>
+#include <pybind11.h>
+
+namespace py = pybind11;
 
 /*********************************************************/
 /* Oscar Sapena Vercher - DSIC - UPV                     */
@@ -13,11 +17,6 @@
 /*********************************************************/
 /* NextFLAP interface with the Unified Planning Platform */
 /*********************************************************/
-
-// Define the next directive to enable debugging to file 'debug.txt'
-// Comment the directive DEBUG_TO_FILE_NOT_CONSOLE in utils.h if you
-// prefer to show debug information in console instead of a file
-// #define DEBUG_TO_FILE
 
 // Planning task to store the planning problem
 ParsedTask* parsedTask = nullptr;
@@ -63,9 +62,6 @@ std::string _startPlanning(SASTask* sTask, bool durativePlan) {
                     (abs(solutionMakespan - bestMakespan) < EPSILON && solution->g < bestNumSteps)) {
                     bestMakespan = solutionMakespan;
                     bestNumSteps = solution->g;
-#ifdef _DEBUG
-                    PrintPlan::rawPrint(solution, sTask);
-#endif // _DEBUG
                     return PrintPlan::print(solution, &cvarValues, durativePlan);
                 }
             }
@@ -76,9 +72,6 @@ std::string _startPlanning(SASTask* sTask, bool durativePlan) {
 
 // Preprocesses and solves the planning task
 std::string _solve(bool durativePlan) {
-#ifdef DEBUG_TO_FILE
-    createDebugFile();
-#endif
     parsedTask->startTime = clock();
 
     PreprocessedTask* prepTask = nullptr;
@@ -86,7 +79,7 @@ std::string _solve(bool durativePlan) {
     SASTask* sTask = nullptr;
     std::string res = "";
     try {
-        parsedTask->error = "";
+        parsedTask->setError("");
         prepTask = _preprocessStage(parsedTask);
         //cout << prepTask->toString() << endl;
         if (prepTask != nullptr) {
@@ -101,7 +94,7 @@ std::string _solve(bool durativePlan) {
         }
     }
     catch (const PlannerException& e) {
-        parsedTask->error = std::string(e.what());
+        parsedTask->setError(std::string(e.what()));
         res = "Error: " + parsedTask->error;
     }
     try {
@@ -112,13 +105,6 @@ std::string _solve(bool durativePlan) {
     catch (...) {}
     return res;
 }
-
-#ifndef _DEBUG
-
-#include <Python.h>
-#include <pybind11/pybind11.h>
-
-namespace py = pybind11;
 
 // Frees the memory, so another planning task can be defined
 void end_task() {
@@ -136,6 +122,7 @@ void start_task(py::float_ timeout) {
     parsedTask = new ParsedTask();
     parsedTask->timeout = timeout;
     parsedTask->setDomainName("UPF");
+    parsedTask->setError("");
 }
 
 // Adds a new type to the planning task. Returns false if an error occurred
@@ -158,12 +145,14 @@ py::bool_ add_type(py::str typeName, py::list ancestors) {
             parentTypes.push_back(index);
         }
         std::string name = typeName;
-        if (parsedTask->addType(name, parentTypes, &syn) != MAX_UNSIGNED_INT) return true;
-        parsedTask->error = "Type " + name + " redefined";
+        index = parsedTask->addType(name, parentTypes, &syn);
+        if (index != MAX_UNSIGNED_INT) 
+            return true;
+        parsedTask->setError("Type " + name + " redefined");
         return false;
     }
     catch (const std::exception& e) {
-        parsedTask->error = e.what();
+        parsedTask->setError(e.what());
         return false;
     }
 }
@@ -176,11 +165,11 @@ py::bool_ add_object(py::str objName, py::str typeName) {
         if (typeIndex == MAX_UNSIGNED_INT) return false;
         std::vector<unsigned int> type(1, typeIndex);
         if (parsedTask->addObject(objName, type, &syn) != MAX_UNSIGNED_INT) return true;
-        parsedTask->error = "Object " + std::string(objName) + " redefined";
+        parsedTask->setError("Object " + std::string(objName) + " redefined");
         return false;
     }
     catch (const std::exception& e) {
-        parsedTask->error = e.what();
+        parsedTask->setError(e.what());
         return false;
     }
 }
@@ -196,7 +185,7 @@ py::bool_ add_fluent(py::str type, py::str name, py::list parameters) {
             std::string paramType = std::string(py::str(it));
             unsigned int typeIndex = parsedTask->getTypeIndex(paramType);
             if (typeIndex == MAX_UNSIGNED_INT) {
-                parsedTask->error = "Type " + paramType + " undefined";
+                parsedTask->setError("Type " + paramType + " undefined");
                 return false;
             }
             paramTypes.push_back(typeIndex);
@@ -205,11 +194,11 @@ py::bool_ add_fluent(py::str type, py::str name, py::list parameters) {
         std::string stype = type;
         unsigned int index = stype.compare("bool") == 0 ? parsedTask->addPredicate(f, &syn) : parsedTask->addFunction(f, &syn);
         if (index != MAX_UNSIGNED_INT) return true;
-        parsedTask->error = "Function/predicate " + f.name + " error";
+        parsedTask->setError("Function/predicate " + f.name + " error");
         return false;
     }
     catch (const std::exception& e) {
-        parsedTask->error = e.what();
+        parsedTask->setError(e.what());
         return false;
     }
 }
@@ -218,12 +207,12 @@ py::bool_ add_fluent(py::str type, py::str name, py::list parameters) {
 bool _find_action(std::string name) {
     for (DurativeAction& a : parsedTask->durativeActions)
         if (a.name.compare(name) == 0) {
-            parsedTask->error = "Action " + name + " redefined";
+            parsedTask->setError("Action " + name + " redefined");
             return true; // Action redefined
         }
     for (Action& a : parsedTask->actions)
         if (a.name.compare(name) == 0) {
-            parsedTask->error = "Action " + name + " redefined";
+            parsedTask->setError("Action " + name + " redefined");
             return true; // Action redefined
         }
     return false;
@@ -233,7 +222,7 @@ bool _find_action(std::string name) {
 bool _add_variable(std::string name, std::string type, std::vector<Variable>& list) {
     unsigned int typeIndex = parsedTask->getTypeIndex(type);
     if (typeIndex == MAX_UNSIGNED_INT) {
-        parsedTask->error = "Type " + type + " undefined";
+        parsedTask->setError("Type " + type + " undefined");
         return false;
     }
     std::vector<unsigned int> types(1, typeIndex);
@@ -253,7 +242,7 @@ bool _to_term(py::list term, Term& t, std::vector<std::vector<Variable>*>* varia
                 return true;
             }
         }
-        parsedTask->error = "Parameter " + token + " not defined";
+        parsedTask->setError("Parameter " + token + " not defined");
         return false;
     }
     if (token.compare("*obj*") == 0) {
@@ -261,7 +250,7 @@ bool _to_term(py::list term, Term& t, std::vector<std::vector<Variable>*>* varia
         std::string token = std::string(py::str(term[1]));
         t.index = parsedTask->getObjectIndex(token);
         if (t.index != MAX_UNSIGNED_INT) return true;
-        parsedTask->error = "Object " + token + " undefined";
+        parsedTask->setError("Object " + token + " undefined");
         return false;
     }
     if (token.compare("*var*") == 0) {
@@ -276,7 +265,7 @@ bool _to_term(py::list term, Term& t, std::vector<std::vector<Variable>*>* varia
                 t.index++;
             }
         }
-        parsedTask->error = "Variable " + token + " undefined";
+        parsedTask->setError("Variable " + token + " undefined");
         return false;
     }
     return false;
@@ -287,7 +276,7 @@ bool _to_literal(py::list exp, Literal& l, std::vector<std::vector<Variable>*>* 
     std::string token = std::string(py::str(exp[1]));
     l.fncIndex = parsedTask->getFunctionIndex(token);
     if (l.fncIndex == MAX_UNSIGNED_INT) {
-        parsedTask->error = "Function " + token + " undefined";
+        parsedTask->setError("Function " + token + " undefined");
         return false;
     }
     for (int i = 2; i < exp.size(); i++) { // Parameters
@@ -332,7 +321,7 @@ bool _to_numeric_expression(py::list exp, NumericExpression& nexp, std::vector<s
         if (_to_literal(exp, nexp.function, variables))
             return true;
     }
-    parsedTask->error = token + " not implemented";
+    parsedTask->setError(token + " not implemented");
     return false;
 }
 
@@ -431,7 +420,7 @@ bool _to_goal_description(py::list cond, GoalDescription& goal, std::vector<std:
         }
         return true;
     }
-    parsedTask->error = token + " not implemented";
+    parsedTask->setError(token + " not implemented");
     return false;
 }
 
@@ -477,7 +466,7 @@ bool to_effect_expression(py::list exp, EffectExpression& e, std::vector<std::ve
         e.type = EE_DURATION;
         return true;
     }
-    parsedTask->error = token + " effect not implemented";
+    parsedTask->setError(token + " effect not implemented");
     return false;
 }
 
@@ -542,7 +531,7 @@ bool _to_effect_single(py::list eff, Effect& e, std::vector<std::vector<Variable
         if (e.parameters.size() > 0) variables->pop_back();
         return true;
     }
-    parsedTask->error = token + " effect not implemented";
+    parsedTask->setError(token + " effect not implemented");
     return false;
 }
 
@@ -613,7 +602,7 @@ bool _to_precondition(py::list cond, Precondition& prec, std::vector<std::vector
         }
         return _to_goal_description(cond, prec.goal, variables, NONE);
     }
-    parsedTask->error = token + " not implemented";
+    parsedTask->setError(token + " not implemented");
     return false;
 }
 
@@ -669,7 +658,7 @@ bool _to_timed_effect(py::list eff, TimedEffect& e, std::vector<std::vector<Vari
         if (!_to_literal(py::cast<py::list>(eff[1]), e.assignment.fluent, variables)) return false;
         return to_effect_expression(py::cast<py::list>(eff[2]), e.assignment.exp, variables);
     }
-    parsedTask->error = token + " effect not implemented";
+    parsedTask->setError(token + " effect not implemented");
     return false;
 }
 
@@ -760,7 +749,7 @@ bool _add_durative_action(py::str name, py::list parameters, py::list duration, 
         a.effect.terms.push_back(e);
     }
     parsedTask->durativeActions.push_back(a);
-    parsedTask->error = a.toString(parsedTask->functions, parsedTask->objects, parsedTask->types);
+    //parsedTask->setError(a.toString(parsedTask->functions, parsedTask->objects, parsedTask->types));
     return true;
 }
 
@@ -780,7 +769,7 @@ bool _add_instantaneous_action(py::str name, py::list parameters, py::list cond,
     if (!_to_precondition(cond, a.precondition, &variables)) return false;
     if (!_to_effect(eff, a.effect, &variables)) return false;
     parsedTask->actions.push_back(a);
-    parsedTask->error = a.toString(parsedTask->functions, parsedTask->objects, parsedTask->types);
+    //parsedTask->setError(a.toString(parsedTask->functions, parsedTask->objects, parsedTask->types));
     return true;
 }
 
@@ -793,7 +782,7 @@ py::bool_ add_action(py::str name, py::bool_ durative, py::list parameters, py::
         return ok;
     }
     catch (const std::exception& e) {
-        parsedTask->error = e.what();
+        parsedTask->setError(e.what());
         return false;
     }
 }
@@ -808,7 +797,7 @@ bool _to_fact(py::list fluent, Fact& f, float time) {
     std::string function = std::string(py::str(fluent[1]));
     f.function = parsedTask->getFunctionIndex(function);
     if (f.function == MAX_UNSIGNED_INT) {
-        parsedTask->error = "Function " + function + " undefined";
+        parsedTask->setError("Function " + function + " undefined");
         return false;
     }
     f.valueIsNumeric = false;
@@ -823,7 +812,7 @@ bool _to_fact(py::list fluent, Fact& f, float time) {
         std::string obj = std::string(py::str(param[1]));
         unsigned int objIndex = parsedTask->getObjectIndex(obj);
         if (objIndex == MAX_UNSIGNED_INT) {
-            parsedTask->error = "Object " + obj + " undefined";
+            parsedTask->setError("Object " + obj + " undefined");
             return false;
         }
         f.parameters.push_back(objIndex);
@@ -844,7 +833,7 @@ bool _add_value(Fact& f, py::list value) {
         if (v.compare("*true*") == 0) f.value = parsedTask->CONSTANT_TRUE;
         else if (v.compare("*false*") == 0) f.value = parsedTask->CONSTANT_FALSE;
         else {
-            parsedTask->error = v + " is not a boolean value";
+            parsedTask->setError(v + " is not a boolean value");
             return false;
         }
     }
@@ -861,7 +850,7 @@ py::bool_ add_initial_value(py::list fluent, py::list value, py::float_ time) {
         return true;
     }
     catch (const std::exception& e) {
-        parsedTask->error = e.what();
+        parsedTask->setError(e.what());
         return false;
     }
 }
@@ -892,20 +881,3 @@ PYBIND11_MODULE(nextflap, m) {
     m.def("solve", &solve, "Solve the planning task");
 }
 
-#else
-
-#include "parser/parser.h"
-#include <iostream>
-
-int main(void) {
-    char domain[] = R"(C:\Laptop\Research\AIPlan4EU\toCheck\openstacks\domain.pddl)";
-    char problem[] = R"(C:\Laptop\Research\AIPlan4EU\toCheck\openstacks\p01.pddl)";
-    Parser parser;
-    parsedTask = parser.parseDomain(domain);
-    parser.parseProblem(problem);
-    cout << _solve(false) << endl;
-
-    return 0;
-}
-
-#endif
