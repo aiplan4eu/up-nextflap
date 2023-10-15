@@ -975,6 +975,7 @@ class NextFLAPImpl(Engine, OneshotPlannerMixin, PlanValidatorMixin):
                     res *= value
                 else:
                     res /= value;
+            return res
         else:
             return False
         
