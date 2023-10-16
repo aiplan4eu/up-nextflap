@@ -32,6 +32,12 @@ from unified_planning.model import EffectKind
 from unified_planning.plans import ActionInstance, TimeTriggeredPlan, PartialOrderPlan
 from fractions import Fraction
 import numpy
+import sys
+import os
+
+LIB_FOLDER = os.path.dirname(os.path.abspath(__file__))
+sys.path.append(LIB_FOLDER)
+
 import nextflap
 
 credits = Credits('NextFLAP',
