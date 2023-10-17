@@ -926,6 +926,9 @@ class NextFLAPImpl(Engine, OneshotPlannerMixin, PlanValidatorMixin):
         bool
             True if the condition holds. False, otherwise.
         """
+        if comp == '*=*' and left[0] == '*obj*' and right[0] == '*obj*': # equality
+            return left[1] != right[1] if neg else left[1] == right[1]
+        
         value1 = NextFLAPImpl._evaluate_numeric_expression(left, state)
         value2 = NextFLAPImpl._evaluate_numeric_expression(right, state)
         if comp == '*<=*':
