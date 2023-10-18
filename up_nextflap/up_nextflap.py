@@ -187,10 +187,17 @@ class NextFLAPImpl(Engine, OneshotPlannerMixin, PlanValidatorMixin):
             exp.append('*<*')
         elif t == OperatorKind.EQUALS:
             exp.append('*=*')
+        elif t == OperatorKind.IFF:
+            exp.append('*and*')
+            exp.append(['*imply*', NextFLAPImpl._convert_fnode(node.args[0]),
+                        NextFLAPImpl._convert_fnode(node.args[1])])
+            exp.append(['*imply*', NextFLAPImpl._convert_fnode(node.args[1]),
+                        NextFLAPImpl._convert_fnode(node.args[0])])
         else:
             raise NotImplementedError
-        for i in range(len(node.args)):
-            exp.append(NextFLAPImpl._convert_fnode(node.args[i]))        
+        if t != OperatorKind.IFF:
+            for i in range(len(node.args)):
+                exp.append(NextFLAPImpl._convert_fnode(node.args[i]))        
         return exp
 
     @staticmethod
@@ -313,6 +320,7 @@ class NextFLAPImpl(Engine, OneshotPlannerMixin, PlanValidatorMixin):
         else:
             for cond in action.preconditions:
                 startCond.append(NextFLAPImpl._convert_fnode(cond))
+            NextFLAPImpl._group_preconditions(startCond)
             for eff in action.effects:
                 startEff.append(NextFLAPImpl._convert_effect(eff))
         NextFLAPImpl._merge_conditional_effects(startEff)
@@ -321,6 +329,31 @@ class NextFLAPImpl(Engine, OneshotPlannerMixin, PlanValidatorMixin):
                                    startCond, overAllCond, endCond,
                                    startEff, endEff)
 
+    @staticmethod
+    def _group_preconditions(conditions):
+        """ Transforms a group of conditions in an AND condition """
+        if len(conditions) > 1:
+            cond = ['*and*']
+            for term in conditions:
+                cond.append(term)
+            conditions.clear()
+            conditions.extend(cond)
+        NextFLAPImpl._remove_nested_ands(conditions)
+        
+    @staticmethod
+    def _remove_nested_ands(conditions):
+        """ Removes nested AND conditions """
+        if len(conditions) > 0 and conditions[0] == '*and*':
+            i = 1
+            while i < len(conditions):
+                term = conditions[i]
+                if len(term) > 0 and term[0] == '*and*':
+                    del conditions[i]
+                    for subterm in term[1:]:
+                        conditions.append(subterm)
+                else:
+                    i += 1
+        
     @staticmethod
     def _translate(problem):
         """ Translates the problem to NextFLAP """
@@ -377,6 +410,7 @@ class NextFLAPImpl(Engine, OneshotPlannerMixin, PlanValidatorMixin):
             
             # Introduce the problem goals in NextFLAP
             goals = [NextFLAPImpl._convert_fnode(g) for g in problem.goals]
+            NextFLAPImpl._group_preconditions(goals)
             if not nextflap.add_goal(goals):
                 raise UPProblemDefinitionError(nextflap.get_error())
             
@@ -928,7 +962,7 @@ class NextFLAPImpl(Engine, OneshotPlannerMixin, PlanValidatorMixin):
         """
         if comp == '*=*' and left[0] == '*obj*' and right[0] == '*obj*': # equality
             return left[1] != right[1] if neg else left[1] == right[1]
-        
+
         value1 = NextFLAPImpl._evaluate_numeric_expression(left, state)
         value2 = NextFLAPImpl._evaluate_numeric_expression(right, state)
         if comp == '*<=*':
