@@ -143,19 +143,19 @@ class NextFLAPImpl(Engine, OneshotPlannerMixin, PlanValidatorMixin):
             exp.append('*imply*')
         elif t == OperatorKind.EXISTS:
             exp.append('*exists*')
-            exp.append([[v.name, v.type.name] for v in node.variables()])
+            exp.append([['?' + v.name, v.type.name] for v in node.variables()])
         elif t == OperatorKind.FORALL:
             exp.append('*forall*')
-            exp.append([[v.name, v.type.name] for v in node.variables()])
+            exp.append([['?' + v.name, v.type.name] for v in node.variables()])
         elif t == OperatorKind.FLUENT_EXP:
             exp.append('*fluent*')
             exp.append(node.fluent().name)
         elif t == OperatorKind.PARAM_EXP:
             exp.append('*param*')
-            exp.append(node.parameter().name)
+            exp.append('?' + node.parameter().name)
         elif t == OperatorKind.VARIABLE_EXP:
             exp.append('*var*')
-            exp.append(node.variable().name)
+            exp.append('?' + node.variable().name)
         elif t == OperatorKind.OBJECT_EXP:
             exp.append('*obj*')
             exp.append(node.object().name)
@@ -282,7 +282,7 @@ class NextFLAPImpl(Engine, OneshotPlannerMixin, PlanValidatorMixin):
         """
         parameters = []
         for param in action.parameters:
-            parameters.append([param.name, param.type.name])
+            parameters.append(['?' + param.name, param.type.name])
         duration = []
         startCond = []
         overAllCond = []
