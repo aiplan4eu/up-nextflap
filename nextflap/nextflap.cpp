@@ -379,7 +379,7 @@ bool _to_goal_description(py::list cond, GoalDescription& goal, std::vector<std:
         if (goal.parameters.size() > 0) variables->push_back(&goal.parameters);
         for (int i = start; i < cond.size(); i++) {
             GoalDescription term;
-            if (!_to_goal_description(py::cast<py::list>(cond[i]), term, variables, time)) return false;
+            if (!_to_goal_description(py::cast<py::list>(cond[i]), term, variables, NONE)) return false;
             goal.terms.push_back(term);
         }
         if (goal.parameters.size() > 0) variables->pop_back();
