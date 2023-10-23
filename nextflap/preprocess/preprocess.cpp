@@ -95,7 +95,7 @@ void Preprocess::checkPreconditionFeatures(DurativeCondition &prec, FeatureList*
             checkPreconditionFeatures(prec.conditions[i], features);
         break;
     case CT_GOAL:
-        checkGoalFeatures(prec.goal, features);
+        checkGoalFeatures(prec.goal, features, true);
         break;
     case CT_FORALL:
         features->universalQuantifierPrec++;
@@ -106,32 +106,36 @@ void Preprocess::checkPreconditionFeatures(DurativeCondition &prec, FeatureList*
 }
 
 // Checks the extended features in a goal description
-void Preprocess::checkGoalFeatures(GoalDescription &goal, FeatureList* features) {
+void Preprocess::checkGoalFeatures(GoalDescription &goal, FeatureList* features, bool prec) {
     switch (goal.type) {
     case GD_AND:
         for (unsigned int i = 0; i < goal.terms.size(); i++)
-            checkGoalFeatures(goal.terms[i], features);
+            checkGoalFeatures(goal.terms[i], features, prec);
         break;
     case GD_NOT:
-        checkGoalFeatures(goal.terms[0], features);
+        checkGoalFeatures(goal.terms[0], features, prec);
         break;
     case GD_OR:
-        features->disjunctionEff++;
+        if (prec) features->disjunctionPrec++;
+        else features->disjunctionEff++;
         for (unsigned int i = 0; i < goal.terms.size(); i++)
-            checkGoalFeatures(goal.terms[i], features);
+            checkGoalFeatures(goal.terms[i], features, prec);
         break;
     case GD_IMPLY:
-        features->implicationEff++;
-        checkGoalFeatures(goal.terms[0], features);
-        checkGoalFeatures(goal.terms[1], features);
+        if (prec) features->implicationPrec++;
+        else features->implicationEff++;
+        checkGoalFeatures(goal.terms[0], features, prec);
+        checkGoalFeatures(goal.terms[1], features, prec);
         break;
     case GD_EXISTS:
-        features->existentialQuantifierEff++;
-        checkGoalFeatures(goal.terms[0], features);
+        if (prec) features->existentialQuantifierPrec++;
+        else features->existentialQuantifierEff++;
+        checkGoalFeatures(goal.terms[0], features, prec);
         break;
     case GD_FORALL:
-        features->universalQuantifierEff++;
-        checkGoalFeatures(goal.terms[0], features);
+        if (prec) features->universalQuantifierPrec++;
+        else features->universalQuantifierEff++;
+        checkGoalFeatures(goal.terms[0], features, prec);
         break;
     default:;
     }
@@ -153,7 +157,7 @@ void Preprocess::checkEffectFeatures(Effect &eff, FeatureList* features) {
         break;
     case ET_WHEN:
         features->conditionalEff++;
-        checkGoalFeatures(eff.goal, features);
+        checkGoalFeatures(eff.goal, features, false);
         checkEffectFeatures(eff.terms[0], features);
         break;
     default:;
@@ -173,7 +177,7 @@ void Preprocess::checkEffectFeatures(DurativeEffect &eff, FeatureList* features)
         break;
     case DET_WHEN:
         features->conditionalEff++;
-        checkGoalFeatures(eff.condition, features);
+        checkGoalFeatures(eff.condition, features, false);
         break;
     case DET_TIMED_EFFECT:
     case DET_ASSIGNMENT:;
@@ -181,18 +185,19 @@ void Preprocess::checkEffectFeatures(DurativeEffect &eff, FeatureList* features)
 }
 
 // Checks the extended features in a duractive condition
-void Preprocess::checkGoalFeatures(DurativeCondition &goal, FeatureList* features) {
+void Preprocess::checkGoalFeatures(DurativeCondition &goal, FeatureList* features, bool prec) {
     switch (goal.type) {
     case CT_AND:
         for (unsigned int i = 0; i < goal.conditions.size(); i++)
-            checkGoalFeatures(goal.conditions[i], features);
+            checkGoalFeatures(goal.conditions[i], features, prec);
         break;
     case CT_GOAL:
-        checkGoalFeatures(goal.goal, features);
+        checkGoalFeatures(goal.goal, features, prec);
         break;
     case CT_FORALL:
-        features->universalQuantifierEff++;
-        checkGoalFeatures(goal.conditions[0], features);
+        if (prec) features->universalQuantifierPrec++;
+        else features->universalQuantifierEff++;
+        checkGoalFeatures(goal.conditions[0], features, prec);
         break;
     case CT_PREFERENCE:; 
     }

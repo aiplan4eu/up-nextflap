@@ -32,8 +32,8 @@ private:
     void preprocessOperators();
     void checkPreconditionFeatures(Precondition &prec, FeatureList* features);
     void checkPreconditionFeatures(DurativeCondition &prec, FeatureList* features);
-    void checkGoalFeatures(GoalDescription &goal, FeatureList* features);
-    void checkGoalFeatures(DurativeCondition &goal, FeatureList* features);
+    void checkGoalFeatures(GoalDescription &goal, FeatureList* features, bool prec);
+    void checkGoalFeatures(DurativeCondition &goal, FeatureList* features, bool prec);
     void checkEffectFeatures(Effect &eff, FeatureList* features);
     void checkEffectFeatures(DurativeEffect &eff, FeatureList* features);
     void preprocessAction(Action a, FeatureList* features, bool isTIL, bool isGoal);
