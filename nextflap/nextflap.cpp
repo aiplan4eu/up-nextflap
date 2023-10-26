@@ -79,12 +79,10 @@ std::string _solve(bool durativePlan) {
     SASTask* sTask = nullptr;
     std::string res = "";
     try {
-        parsedTask->setError("");
+        parsedTask->error = "";
         prepTask = _preprocessStage(parsedTask);
-        //cout << prepTask->toString() << endl;
         if (prepTask != nullptr) {
             gTask = _groundingStage(prepTask);
-            //cout << gTask->toString() << endl;
             if (gTask != nullptr) {
                 sTask = _sasTranslationStage(gTask);
                 if (sTask != nullptr) {
@@ -94,7 +92,7 @@ std::string _solve(bool durativePlan) {
         }
     }
     catch (const PlannerException& e) {
-        parsedTask->setError(std::string(e.what()));
+        parsedTask->error = std::string(e.what());
         res = "Error: " + parsedTask->error;
     }
     try {
@@ -122,7 +120,7 @@ void start_task(py::float_ timeout) {
     parsedTask = new ParsedTask();
     parsedTask->timeout = timeout;
     parsedTask->setDomainName("UPF");
-    parsedTask->setError("");
+    //createDebugFile();
 }
 
 // Adds a new type to the planning task. Returns false if an error occurred
@@ -145,14 +143,12 @@ py::bool_ add_type(py::str typeName, py::list ancestors) {
             parentTypes.push_back(index);
         }
         std::string name = typeName;
-        index = parsedTask->addType(name, parentTypes, &syn);
-        if (index != MAX_UNSIGNED_INT) 
-            return true;
-        parsedTask->setError("Type " + name + " redefined");
+        if (parsedTask->addType(name, parentTypes, &syn) != MAX_UNSIGNED_INT) return true;
+        parsedTask->error = "Type " + name + " redefined";
         return false;
     }
     catch (const std::exception& e) {
-        parsedTask->setError(e.what());
+        parsedTask->error = e.what();
         return false;
     }
 }
@@ -165,11 +161,11 @@ py::bool_ add_object(py::str objName, py::str typeName) {
         if (typeIndex == MAX_UNSIGNED_INT) return false;
         std::vector<unsigned int> type(1, typeIndex);
         if (parsedTask->addObject(objName, type, &syn) != MAX_UNSIGNED_INT) return true;
-        parsedTask->setError("Object " + std::string(objName) + " redefined");
+        parsedTask->error = "Object " + std::string(objName) + " redefined";
         return false;
     }
     catch (const std::exception& e) {
-        parsedTask->setError(e.what());
+        parsedTask->error = e.what();
         return false;
     }
 }
@@ -185,7 +181,7 @@ py::bool_ add_fluent(py::str type, py::str name, py::list parameters) {
             std::string paramType = std::string(py::str(it));
             unsigned int typeIndex = parsedTask->getTypeIndex(paramType);
             if (typeIndex == MAX_UNSIGNED_INT) {
-                parsedTask->setError("Type " + paramType + " undefined");
+                parsedTask->error = "Type " + paramType + " undefined";
                 return false;
             }
             paramTypes.push_back(typeIndex);
@@ -194,11 +190,11 @@ py::bool_ add_fluent(py::str type, py::str name, py::list parameters) {
         std::string stype = type;
         unsigned int index = stype.compare("bool") == 0 ? parsedTask->addPredicate(f, &syn) : parsedTask->addFunction(f, &syn);
         if (index != MAX_UNSIGNED_INT) return true;
-        parsedTask->setError("Function/predicate " + f.name + " error");
+        parsedTask->error = "Function/predicate " + f.name + " error";
         return false;
     }
     catch (const std::exception& e) {
-        parsedTask->setError(e.what());
+        parsedTask->error = e.what();
         return false;
     }
 }
@@ -207,12 +203,12 @@ py::bool_ add_fluent(py::str type, py::str name, py::list parameters) {
 bool _find_action(std::string name) {
     for (DurativeAction& a : parsedTask->durativeActions)
         if (a.name.compare(name) == 0) {
-            parsedTask->setError("Action " + name + " redefined");
+            parsedTask->error = "Action " + name + " redefined";
             return true; // Action redefined
         }
     for (Action& a : parsedTask->actions)
         if (a.name.compare(name) == 0) {
-            parsedTask->setError("Action " + name + " redefined");
+            parsedTask->error = "Action " + name + " redefined";
             return true; // Action redefined
         }
     return false;
@@ -222,7 +218,7 @@ bool _find_action(std::string name) {
 bool _add_variable(std::string name, std::string type, std::vector<Variable>& list) {
     unsigned int typeIndex = parsedTask->getTypeIndex(type);
     if (typeIndex == MAX_UNSIGNED_INT) {
-        parsedTask->setError("Type " + type + " undefined");
+        parsedTask->error = "Type " + type + " undefined";
         return false;
     }
     std::vector<unsigned int> types(1, typeIndex);
@@ -242,7 +238,7 @@ bool _to_term(py::list term, Term& t, std::vector<std::vector<Variable>*>* varia
                 return true;
             }
         }
-        parsedTask->setError("Parameter " + token + " not defined");
+        parsedTask->error = "Parameter " + token + " not defined";
         return false;
     }
     if (token.compare("*obj*") == 0) {
@@ -250,7 +246,7 @@ bool _to_term(py::list term, Term& t, std::vector<std::vector<Variable>*>* varia
         std::string token = std::string(py::str(term[1]));
         t.index = parsedTask->getObjectIndex(token);
         if (t.index != MAX_UNSIGNED_INT) return true;
-        parsedTask->setError("Object " + token + " undefined");
+        parsedTask->error = "Object " + token + " undefined";
         return false;
     }
     if (token.compare("*var*") == 0) {
@@ -265,7 +261,7 @@ bool _to_term(py::list term, Term& t, std::vector<std::vector<Variable>*>* varia
                 t.index++;
             }
         }
-        parsedTask->setError("Variable " + token + " undefined");
+        parsedTask->error = "Variable " + token + " undefined";
         return false;
     }
     return false;
@@ -276,7 +272,7 @@ bool _to_literal(py::list exp, Literal& l, std::vector<std::vector<Variable>*>* 
     std::string token = std::string(py::str(exp[1]));
     l.fncIndex = parsedTask->getFunctionIndex(token);
     if (l.fncIndex == MAX_UNSIGNED_INT) {
-        parsedTask->setError("Function " + token + " undefined");
+        parsedTask->error = "Function " + token + " undefined";
         return false;
     }
     for (int i = 2; i < exp.size(); i++) { // Parameters
@@ -291,7 +287,8 @@ bool _to_literal(py::list exp, Literal& l, std::vector<std::vector<Variable>*>* 
 }
 
 // Converts a numeric expression and stores it in the parameter "nexp". Returns false if an error occurred
-bool _to_numeric_expression(py::list exp, NumericExpression& nexp, std::vector<std::vector<Variable>*>* variables) {
+bool _to_numeric_expression(py::list exp, NumericExpression& nexp, std::vector<std::vector<Variable>*>* variables,
+    std::vector<Variable>* controlVars) {
     std::string token = std::string(py::str(exp[0]));
     if (token.compare("*int*") == 0 || token.compare("*real*") == 0) { // Integer or real number
         token = std::string(py::str(exp[1]));
@@ -310,7 +307,7 @@ bool _to_numeric_expression(py::list exp, NumericExpression& nexp, std::vector<s
         }
         for (int i = 1; i < exp.size(); i++) {
             NumericExpression operand;
-            if (!_to_numeric_expression(py::cast<py::list>(exp[i]), operand, variables)) return false;
+            if (!_to_numeric_expression(py::cast<py::list>(exp[i]), operand, variables, controlVars)) return false;
             nexp.operands.push_back(operand);
         }
         if (nexp.type == NET_SUB && nexp.operands.size() == 1) nexp.type = NET_NEGATION;
@@ -321,7 +318,24 @@ bool _to_numeric_expression(py::list exp, NumericExpression& nexp, std::vector<s
         if (_to_literal(exp, nexp.function, variables))
             return true;
     }
-    parsedTask->setError(token + " not implemented");
+    if (token.compare("*param*") == 0 && controlVars != nullptr) {
+        std::string varName = std::string(py::str(exp[1]));
+        nexp.type = NET_TERM;
+        unsigned int paramIndex = MAX_UNSIGNED_INT;
+        for (unsigned int i = 0; i < controlVars->size(); i++)
+            if (varName.compare(controlVars->at(i).name) == 0) {
+                paramIndex = i;
+                break;
+            }
+        if (paramIndex == MAX_UNSIGNED_INT) {
+            parsedTask->error = "Numeric variable " + varName + " not defined";
+            return false;
+        }
+        nexp.term.type = TERM_CONTROL_VAR;
+        nexp.term.index = paramIndex;
+        return true;
+    }
+    parsedTask->error = token + " not implemented";
     return false;
 }
 
@@ -332,7 +346,7 @@ py::bool_ _add_duration(py::list duration, DurativeAction& a) {
     if (duration.size() == 1) {
         py::list exp = py::cast<py::list>(duration[0]);
         NumericExpression nexp;
-        if (!_to_numeric_expression(exp, nexp, &variables)) return false;
+        if (!_to_numeric_expression(exp, nexp, &variables, &a.controlVars)) return false;
         a.duration.emplace_back(Symbol::EQUAL, nexp);
         return true;
     }
@@ -340,11 +354,11 @@ py::bool_ _add_duration(py::list duration, DurativeAction& a) {
         py::list lower = py::cast<py::list>(duration[0]), upper = py::cast<py::list>(duration[1]);
         py::bool_ open = py::cast<py::bool_>(lower[0]);
         NumericExpression lower_exp;
-        if (!_to_numeric_expression(py::cast<py::list>(lower[1]), lower_exp, &variables)) return false;
+        if (!_to_numeric_expression(py::cast<py::list>(lower[1]), lower_exp, &variables, &a.controlVars)) return false;
         a.duration.emplace_back(open ? Symbol::GREATER : Symbol::GREATER_EQ, lower_exp);
         open = py::cast<py::bool_>(upper[0]);
         NumericExpression upper_exp;
-        if (!_to_numeric_expression(py::cast<py::list>(upper[1]), upper_exp, &variables)) return false;
+        if (!_to_numeric_expression(py::cast<py::list>(upper[1]), upper_exp, &variables, &a.controlVars)) return false;
         a.duration.emplace_back(open ? Symbol::LESS : Symbol::LESS_EQ, upper_exp);
         return true;
     }
@@ -352,7 +366,8 @@ py::bool_ _add_duration(py::list duration, DurativeAction& a) {
 }
 
 // Converts a goal description and stores it in the parameter "goal". Returns false if an error occurred
-bool _to_goal_description(py::list cond, GoalDescription& goal, std::vector<std::vector<Variable>*>* variables, TimeSpecifier time) {
+bool _to_goal_description(py::list cond, GoalDescription& goal, std::vector<std::vector<Variable>*>* variables, 
+    TimeSpecifier time, std::vector<Variable>* controlVars) {
     goal.time = time;
     std::string token = std::string(py::str(cond[0]));
     if (token.compare("*and*") == 0 || token.compare("*not*") == 0 || token.compare("*imply*") == 0 || 
@@ -379,7 +394,7 @@ bool _to_goal_description(py::list cond, GoalDescription& goal, std::vector<std:
         if (goal.parameters.size() > 0) variables->push_back(&goal.parameters);
         for (int i = start; i < cond.size(); i++) {
             GoalDescription term;
-            if (!_to_goal_description(py::cast<py::list>(cond[i]), term, variables, NONE)) return false;
+            if (!_to_goal_description(py::cast<py::list>(cond[i]), term, variables, NONE, controlVars)) return false;
             goal.terms.push_back(term);
         }
         if (goal.parameters.size() > 0) variables->pop_back();
@@ -414,13 +429,13 @@ bool _to_goal_description(py::list cond, GoalDescription& goal, std::vector<std:
         if (goal.type != GD_EQUALITY) {
             for (int i = 1; i < cond.size(); i++) {
                 NumericExpression nexp;
-                if (!_to_numeric_expression(py::cast<py::list>(cond[i]), nexp, variables)) return false;
+                if (!_to_numeric_expression(py::cast<py::list>(cond[i]), nexp, variables, controlVars)) return false;
                 goal.exp.push_back(nexp);
             }
         }
         return true;
     }
-    parsedTask->setError(token + " not implemented");
+    parsedTask->error = token + " not implemented";
     return false;
 }
 
@@ -429,11 +444,12 @@ bool _to_durative_condition(py::list cond, DurativeCondition& c, DurativeAction*
     c.type = CT_GOAL;
     std::vector<std::vector<Variable>*> variables;
     variables.push_back(&a->parameters);
-    return _to_goal_description(cond, c.goal, &variables, time);
+    return _to_goal_description(cond, c.goal, &variables, time, &a->controlVars);
 }
 
 // Converts an effect expression and stores it in the parameter "e". Returns false if an error occurred
-bool to_effect_expression(py::list exp, EffectExpression& e, std::vector<std::vector<Variable>*>* variables) {
+bool to_effect_expression(py::list exp, EffectExpression& e, std::vector<std::vector<Variable>*>* variables,
+    std::vector<Variable>* controlVars) {
     std::string token = std::string(py::str(exp[0]));
     if (token.compare("*int*") == 0 || token.compare("*real*") == 0) {
         e.type = EE_NUMBER;
@@ -457,7 +473,7 @@ bool to_effect_expression(py::list exp, EffectExpression& e, std::vector<std::ve
         }
         for (int i = 1; i < exp.size(); i++) {
             EffectExpression operand;
-            if (!to_effect_expression(py::cast<py::list>(exp[i]), operand, variables)) return false;
+            if (!to_effect_expression(py::cast<py::list>(exp[i]), operand, variables, controlVars)) return false;
             e.operands.push_back(operand);
         }
         return true;
@@ -466,12 +482,29 @@ bool to_effect_expression(py::list exp, EffectExpression& e, std::vector<std::ve
         e.type = EE_DURATION;
         return true;
     }
-    parsedTask->setError(token + " effect not implemented");
+    if (token.compare("*param*") == 0 && controlVars != nullptr) {
+        std::string varName = std::string(py::str(exp[1]));
+        e.type = EE_TERM;
+        unsigned int paramIndex = MAX_UNSIGNED_INT;
+        for (unsigned int i = 0; i < controlVars->size(); i++)
+            if (varName.compare(controlVars->at(i).name) == 0) {
+                paramIndex = i;
+                break;
+            }
+        if (paramIndex == MAX_UNSIGNED_INT) {
+            parsedTask->error = "Numeric variable " + varName + " not defined";
+            return false;
+        }
+        e.term.type = TERM_CONTROL_VAR;
+        e.term.index = paramIndex;
+        return true;
+    }
+    parsedTask->error = token + " effect not implemented";
     return false;
 }
 
 // Converts an effect and stores it in the parameter "e". Returns false if an error occurred
-bool _to_effect_single(py::list eff, Effect& e, std::vector<std::vector<Variable>*>* variables) {
+bool _to_effect_single(py::list eff, Effect& e, std::vector<std::vector<Variable>*>* variables, std::vector<Variable>* controlVars) {
     std::string token = std::string(py::str(eff[0]));
     if (token.compare("*=*") == 0 || token.compare("*+=*") == 0 || token.compare("*-=*") == 0 || token.compare("**=*") == 0 || token.compare("*/=*") == 0) {
         char op = token.at(1);
@@ -503,14 +536,14 @@ bool _to_effect_single(py::list eff, Effect& e, std::vector<std::vector<Variable
         default: return false;
         }
         if (!_to_literal(py::cast<py::list>(eff[1]), e.assignment.fluent, variables)) return false;
-        return to_effect_expression(py::cast<py::list>(eff[2]), e.assignment.exp, variables);
+        return to_effect_expression(py::cast<py::list>(eff[2]), e.assignment.exp, variables, controlVars);
     }
     if (token.compare("*when*") == 0) {
         e.type = ET_WHEN;
-        if (!_to_goal_description(py::cast<py::list>(eff[1]), e.goal, variables, NONE)) return false;
+        if (!_to_goal_description(py::cast<py::list>(eff[1]), e.goal, variables, NONE, controlVars)) return false;
         for (int i = 2; i < eff.size(); i++) {
             Effect term;
-            if (!_to_effect_single(py::cast<py::list>(eff[i]), term, variables)) return false;
+            if (!_to_effect_single(py::cast<py::list>(eff[i]), term, variables, controlVars)) return false;
             e.terms.push_back(term);
         }
         return true;
@@ -525,36 +558,36 @@ bool _to_effect_single(py::list eff, Effect& e, std::vector<std::vector<Variable
         if (e.parameters.size() > 0) variables->push_back(&e.parameters);
         for (int i = 2; i < eff.size(); i++) {
             Effect term;
-            if (!_to_effect_single(py::cast<py::list>(eff[i]), term, variables)) return false;
+            if (!_to_effect_single(py::cast<py::list>(eff[i]), term, variables, controlVars)) return false;
             e.terms.push_back(term);
         }
         if (e.parameters.size() > 0) variables->pop_back();
         return true;
     }
-    parsedTask->setError(token + " effect not implemented");
+    parsedTask->error = token + " effect not implemented";
     return false;
 }
 
 // Converts an effect and stores it in the parameter "e". Returns false if an error occurred
-bool _to_effect(py::list eff, Effect& e, std::vector<std::vector<Variable>*>* variables) {
+bool _to_effect(py::list eff, Effect& e, std::vector<std::vector<Variable>*>* variables, std::vector<Variable>* controlVars) {
     if (eff.size() == 0) return true;
     if (eff.size() == 1) {
-        return _to_effect_single(py::cast<py::list>(eff[0]), e, variables);
+        return _to_effect_single(py::cast<py::list>(eff[0]), e, variables, controlVars);
     }
     e.type = ET_AND;
     for (int i = 0; i < eff.size(); i++) {
         Effect term;
-        if (!_to_effect_single(py::cast<py::list>(eff[i]), term, variables)) return false;
+        if (!_to_effect_single(py::cast<py::list>(eff[i]), term, variables, controlVars)) return false;
         e.terms.push_back(term);
     }
     return true;
 }
 
 // Converts a precondition and stores it in the parameter "prec". Returns false if an error occurred
-bool _to_precondition(py::list cond, Precondition& prec, std::vector<std::vector<Variable>*>* variables) {
+bool _to_precondition(py::list cond, Precondition& prec, std::vector<std::vector<Variable>*>* variables, std::vector<Variable>* controlVars) {
     if (cond.size() == 0) return true;
     if (cond.size() == 1) {
-        return _to_precondition(py::cast<py::list>(cond[0]), prec, variables);
+        return _to_precondition(py::cast<py::list>(cond[0]), prec, variables, controlVars);
     }
     std::string token = std::string(py::str(cond[0]));
     if (token.compare("*or*") == 0 || token.compare("*and*") == 0 || token.compare("*not*") == 0 || token.compare("*imply*") == 0
@@ -582,7 +615,7 @@ bool _to_precondition(py::list cond, Precondition& prec, std::vector<std::vector
         if (prec.parameters.size() > 0) variables->push_back(&prec.parameters);
         for (int i = start; i < cond.size(); i++) {
             Precondition term;
-            if (!_to_precondition(py::cast<py::list>(cond[i]), term, variables)) return false;
+            if (!_to_precondition(py::cast<py::list>(cond[i]), term, variables, controlVars)) return false;
             prec.terms.push_back(term);
         }
         if (prec.parameters.size() > 0) variables->pop_back();
@@ -600,14 +633,15 @@ bool _to_precondition(py::list cond, Precondition& prec, std::vector<std::vector
                 prec.type = PT_EQUALITY;
             }
         }
-        return _to_goal_description(cond, prec.goal, variables, NONE);
+        return _to_goal_description(cond, prec.goal, variables, NONE, controlVars);
     }
-    parsedTask->setError(token + " not implemented");
+    parsedTask->error = token + " not implemented";
     return false;
 }
 
 // Converts a timed effect and stores it in the parameter "e". Returns false if an error occurred
-bool _to_timed_effect(py::list eff, TimedEffect& e, std::vector<std::vector<Variable>*>* variables, TimeSpecifier time) {
+bool _to_timed_effect(py::list eff, TimedEffect& e, std::vector<std::vector<Variable>*>* variables, TimeSpecifier time,
+    std::vector<Variable>* controlVars) {
     std::string token = std::string(py::str(eff[0]));
     e.time = time;
     if (token.compare("*and*") == 0 || token.compare("*not*") == 0 || token.compare("*or*") == 0) {
@@ -620,7 +654,7 @@ bool _to_timed_effect(py::list eff, TimedEffect& e, std::vector<std::vector<Vari
         }
         for (int i = 1; i < eff.size(); i++) {
             TimedEffect term;
-            if (!_to_timed_effect(py::cast<py::list>(eff[i]), term, variables, time)) return false;
+            if (!_to_timed_effect(py::cast<py::list>(eff[i]), term, variables, time, controlVars)) return false;
             e.terms.push_back(term);
         }
         return true;
@@ -656,14 +690,15 @@ bool _to_timed_effect(py::list eff, TimedEffect& e, std::vector<std::vector<Vari
         default: return false;
         }
         if (!_to_literal(py::cast<py::list>(eff[1]), e.assignment.fluent, variables)) return false;
-        return to_effect_expression(py::cast<py::list>(eff[2]), e.assignment.exp, variables);
+        return to_effect_expression(py::cast<py::list>(eff[2]), e.assignment.exp, variables, controlVars);
     }
-    parsedTask->setError(token + " effect not implemented");
+    parsedTask->error = token + " effect not implemented";
     return false;
 }
 
 // Converts a single durative effect and stores it in the parameter "e". Returns false if an error occurred
-bool _to_durative_effect_single(py::list eff, DurativeEffect& e, std::vector<std::vector<Variable>*>* variables, TimeSpecifier time) {
+bool _to_durative_effect_single(py::list eff, DurativeEffect& e, std::vector<std::vector<Variable>*>* variables,
+    TimeSpecifier time, std::vector<Variable>* controlVars) {
     std::string token = std::string(py::str(eff[0]));
     if (token.compare("*and*") == 0 || token.compare("*forall*") == 0) {
         char t = token.at(1);
@@ -685,7 +720,7 @@ bool _to_durative_effect_single(py::list eff, DurativeEffect& e, std::vector<std
         if (e.parameters.size() > 0) variables->push_back(&e.parameters);
         for (int i = start; i < eff.size(); i++) {
             DurativeEffect term;
-            if (!_to_durative_effect_single(py::cast<py::list>(eff[i]), term, variables, time)) return false;
+            if (!_to_durative_effect_single(py::cast<py::list>(eff[i]), term, variables, time, controlVars)) return false;
             e.terms.push_back(term);
         }
         if (e.parameters.size() > 0) variables->pop_back();
@@ -694,18 +729,27 @@ bool _to_durative_effect_single(py::list eff, DurativeEffect& e, std::vector<std
     if (token.compare("*when*") == 0) {
         e.type = DET_WHEN;
         e.condition.type = CT_GOAL;
-        if (!_to_goal_description(py::cast<py::list>(eff[1]), e.condition.goal, variables, time)) return false;
-        return _to_timed_effect(py::cast<py::list>(eff[2]), e.timedEffect, variables, time);
+        if (!_to_goal_description(py::cast<py::list>(eff[1]), e.condition.goal, variables, time, controlVars)) return false;
+        return _to_timed_effect(py::cast<py::list>(eff[2]), e.timedEffect, variables, time, controlVars);
     }
     e.type = DET_TIMED_EFFECT;
-    return _to_timed_effect(eff, e.timedEffect, variables, time);
+    return _to_timed_effect(eff, e.timedEffect, variables, time, controlVars);
 }
 
 // Converts a durative effect and stores it in the parameter "e". Returns false if an error occurred
 bool _to_durative_effect(py::list eff, DurativeEffect& e, DurativeAction* a, TimeSpecifier time) {
     std::vector<std::vector<Variable>*> variables;
     variables.push_back(&a->parameters);
-    return _to_durative_effect_single(eff, e, &variables, time);
+    return _to_durative_effect_single(eff, e, &variables, time, &a->controlVars);
+}
+
+// Adds a control parameter
+bool _add_control_parameter(std::string param, std::string typeName, std::vector<Variable>& controlVars) {
+    std::vector<unsigned int> types;
+    if (typeName.compare("#int") == 0) types.push_back(parsedTask->INTEGER_TYPE);
+    else types.push_back(parsedTask->NUMBER_TYPE);
+    controlVars.emplace_back(param, types);
+    return true;
 }
 
 // Adds a durative action to the planning task. Returns false if an error occurred
@@ -715,12 +759,28 @@ bool _add_durative_action(py::str name, py::list parameters, py::list duration, 
     DurativeAction a;
     a.index = (int)parsedTask->durativeActions.size();
     a.name = name;
+    bool hasControlParameters = false;
     for (py::handle it : parameters) {
         py::list param = py::cast<py::list>(it);
-        if (!_add_variable(std::string(py::str(param[0])), std::string(py::str(param[1])), a.parameters))
-            return false;
+        std::string typeName = std::string(py::str(param[1]));
+        if (typeName.compare("#real") == 0 || typeName.compare("#int") == 0) {
+            hasControlParameters = true;
+            if (!_add_control_parameter(std::string(py::str(param[0])), typeName, a.controlVars))
+                return false;
+        }
+        else {
+            if (hasControlParameters) {
+                parsedTask->error = "Numeric parameters must be defined at the end of the parameter list";
+                return false;
+            }
+            if (!_add_variable(std::string(py::str(param[0])), typeName, a.parameters))
+                return false;
+        }
     }
+    parsedTask->error = "Error in duration";
     if (!_add_duration(duration, a)) return false;
+    
+    parsedTask->error = "Error in cond";
     a.condition.type = CT_AND;
     for (py::handle it : startCond) {
         DurativeCondition c;
@@ -737,6 +797,7 @@ bool _add_durative_action(py::str name, py::list parameters, py::list duration, 
         if (!_to_durative_condition(py::cast<py::list>(it), c, &a, AT_END)) return false;
         a.condition.conditions.push_back(c);
     }
+    parsedTask->error = "Error in eff";
     a.effect.type = DET_AND;
     for (py::handle it : startEff) {
         DurativeEffect e;
@@ -749,7 +810,7 @@ bool _add_durative_action(py::str name, py::list parameters, py::list duration, 
         a.effect.terms.push_back(e);
     }
     parsedTask->durativeActions.push_back(a);
-    //parsedTask->setError(a.toString(parsedTask->functions, parsedTask->objects, parsedTask->types));
+    parsedTask->error = a.toString(parsedTask->functions, parsedTask->objects, parsedTask->types);
     return true;
 }
 
@@ -761,15 +822,20 @@ bool _add_instantaneous_action(py::str name, py::list parameters, py::list cond,
     a.name = name;
     for (py::handle it : parameters) {
         py::list param = py::cast<py::list>(it);
-        if (!_add_variable(std::string(py::str(param[0])), std::string(py::str(param[1])), a.parameters))
+        std::string typeName = std::string(py::str(param[1]));
+        if (typeName.compare("#real") == 0 || typeName.compare("#int") == 0) {
+            parsedTask->error = "Numeric parameters are only allowed in durative actions";
+            return false;
+        }
+        if (!_add_variable(std::string(py::str(param[0])), typeName, a.parameters))
             return false;
     }
     std::vector<std::vector<Variable>*> variables;
     variables.push_back(&a.parameters);
-    if (!_to_precondition(cond, a.precondition, &variables)) return false;
-    if (!_to_effect(eff, a.effect, &variables)) return false;
+    if (!_to_precondition(cond, a.precondition, &variables, nullptr)) return false;
+    if (!_to_effect(eff, a.effect, &variables, nullptr)) return false;
     parsedTask->actions.push_back(a);
-    //parsedTask->setError(a.toString(parsedTask->functions, parsedTask->objects, parsedTask->types));
+    parsedTask->error = a.toString(parsedTask->functions, parsedTask->objects, parsedTask->types);
     return true;
 }
 
@@ -782,7 +848,7 @@ py::bool_ add_action(py::str name, py::bool_ durative, py::list parameters, py::
         return ok;
     }
     catch (const std::exception& e) {
-        parsedTask->setError(e.what());
+        parsedTask->error = e.what();
         return false;
     }
 }
@@ -797,7 +863,7 @@ bool _to_fact(py::list fluent, Fact& f, float time) {
     std::string function = std::string(py::str(fluent[1]));
     f.function = parsedTask->getFunctionIndex(function);
     if (f.function == MAX_UNSIGNED_INT) {
-        parsedTask->setError("Function " + function + " undefined");
+        parsedTask->error = "Function " + function + " undefined";
         return false;
     }
     f.valueIsNumeric = false;
@@ -812,7 +878,7 @@ bool _to_fact(py::list fluent, Fact& f, float time) {
         std::string obj = std::string(py::str(param[1]));
         unsigned int objIndex = parsedTask->getObjectIndex(obj);
         if (objIndex == MAX_UNSIGNED_INT) {
-            parsedTask->setError("Object " + obj + " undefined");
+            parsedTask->error = "Object " + obj + " undefined";
             return false;
         }
         f.parameters.push_back(objIndex);
@@ -833,7 +899,7 @@ bool _add_value(Fact& f, py::list value) {
         if (v.compare("*true*") == 0) f.value = parsedTask->CONSTANT_TRUE;
         else if (v.compare("*false*") == 0) f.value = parsedTask->CONSTANT_FALSE;
         else {
-            parsedTask->setError(v + " is not a boolean value");
+            parsedTask->error = v + " is not a boolean value";
             return false;
         }
     }
@@ -850,7 +916,7 @@ py::bool_ add_initial_value(py::list fluent, py::list value, py::float_ time) {
         return true;
     }
     catch (const std::exception& e) {
-        parsedTask->setError(e.what());
+        parsedTask->error = e.what();
         return false;
     }
 }
@@ -858,7 +924,7 @@ py::bool_ add_initial_value(py::list fluent, py::list value, py::float_ time) {
 // Adds a goal to the planning task. Returns false if an error occurred
 py::bool_ add_goal(py::list cond) {
     std::vector<std::vector<Variable>*> variables;
-    return _to_precondition(cond, parsedTask->goal, &variables);
+    return _to_precondition(cond, parsedTask->goal, &variables, nullptr);
 }
 
 // Solves the planning task and returns the plan as a string
