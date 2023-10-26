@@ -26,21 +26,19 @@ std::string PrintPlan::printDurative(Plan* p, TControVarValues* cvarValues)
 		if ((tp & 1) == 0 && !pc->isRoot() && !pc->action->isGoal) {
 			float duration = round3d(pc->endPoint.updatedTime) - round3d(pc->startPoint.updatedTime);
 			res += std::to_string(round3d(pc->startPoint.updatedTime - 0.001)) + ": ("
-				+ actionName(pc->action) + ") [" + std::to_string(round3d(duration))
-				+ "]|";
-			/*
-			cout << fixed << setprecision(3) << round3d(pc->startPoint.updatedTime - 0.001) << ": ("
-				 << actionName(pc->action) << ") [" << fixed << setprecision(3) << round3d(duration)
-				 << "]" << endl;
+				+ actionName(pc->action);
 			if (cvarValues != nullptr && !pc->action->controlVars.empty()) {
 				std::vector<float> values = cvarValues->at(timePointToStep(tp));
-				for (int i = 0; i < values.size(); i++) {
-					res += "\t; Control parameter: " + pc->action->controlVars[i].name
-						+ " = " + std::to_string(values[i]) + "\n";
-					cout << "\t; Control parameter: " << pc->action->controlVars[i].name
-						<< " = " << fixed << setprecision(3) << values[i] << endl;
+				for (SASControlVar& cv : pc->action->controlVars) {
+					for (int i = 0; i < values.size(); i++) {
+						if (pc->action->controlVars[i].name.compare(cv.name) == 0) {
+							res += " " + std::to_string(values[i]); 
+							break;
+						}
+					}
 				}
-			}*/
+			}
+			res += ") [" + std::to_string(round3d(duration)) + "]|";
 			if (pc->endPoint.updatedTime > makespan)
 				makespan = pc->endPoint.updatedTime;
 		}
