@@ -282,7 +282,13 @@ class NextFLAPImpl(Engine, OneshotPlannerMixin, PlanValidatorMixin):
         """
         parameters = []
         for param in action.parameters:
-            parameters.append(['?' + param.name, param.type.name])
+            if param.type.is_real_type():
+                typeName = '#real'
+            elif param.type.is_int_type():
+                typeName = '#int'
+            else:
+                typeName = param.type.name
+            parameters.append(['?' + param.name, typeName])
         duration = []
         startCond = []
         overAllCond = []
@@ -450,10 +456,19 @@ class NextFLAPImpl(Engine, OneshotPlannerMixin, PlanValidatorMixin):
                     up_action = a
                     break
         params_tuple = []
+        num_param = 0
         for param in action[1:]:
-            obj = problem.object(param)
-            fnode = problem.environment.expression_manager.ObjectExp(obj)
+            if up_action.parameters[num_param].type.is_real_type():
+                number = Fraction(round(float(param)*1000), 1000)
+                fnode = problem.environment.expression_manager.Real(number)
+            elif up_action.parameters[num_param].type.is_int_type():
+                number = int(param)
+                fnode = problem.environment.expression_manager.Int(number)
+            else:
+                obj = problem.object(param)
+                fnode = problem.environment.expression_manager.ObjectExp(obj)
             params_tuple.append(fnode)
+            num_param += 1
         return ActionInstance(up_action, tuple(params_tuple))
         
     @staticmethod
