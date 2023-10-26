@@ -2000,6 +2000,9 @@ int Grounder::checkNumericCondition(GroundedNumericCondition* c) {
 void Grounder::checkNumericEffectsNotRequired()
 {
     for (GroundedAction& a : gTask->actions) {
+        for (GroundedDuration& dur : a.duration) {
+            checkNumericEffectsNotRequired(dur.exp, a);
+        }
         for (GroundedNumericEffect& e : a.startNumEff) {
             if (!a.requiresNumericVariable(e.varIndex)) {
                 addDummyNumericPrecondition(a.startNumCond, e.varIndex);
@@ -2027,6 +2030,19 @@ void Grounder::checkNumericEffectsNotRequired()
             }
         }
 
+    }
+}
+
+void Grounder::checkNumericEffectsNotRequired(GroundedNumericExpression& e, GroundedAction& a) {
+    if (e.type == GE_VAR) {
+        if (!a.requiresNumericVariable(e.index)) {
+            addDummyNumericPrecondition(a.startNumCond, e.index);
+        }
+    }
+    else {
+        for (GroundedNumericExpression& t : e.terms) {
+            checkNumericEffectsNotRequired(t, a);
+        }
     }
 }
 

@@ -151,6 +151,7 @@ private:
 	void checkNumericConditions();
 	int checkNumericCondition(GroundedNumericCondition* c);
     void checkNumericEffectsNotRequired();
+    void checkNumericEffectsNotRequired(GroundedNumericExpression& e, GroundedAction& a);
     void checkNumericEffectsNotRequired(GroundedNumericExpression& e, std::vector<GroundedNumericCondition>& aEff, GroundedAction &a);
     void checkConditionalNumericEffectsNotRequired(GroundedNumericExpression& e, std::vector<GroundedNumericCondition>& aEff, GroundedConditionalEffect& ce, GroundedAction& a);
     void addDummyNumericPrecondition(std::vector<GroundedNumericCondition>& cond, TVariable v);
